@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#111111">
+<title>GOAL LOCK</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:20px;background:#f4f4f6;color:#111;font-family:-apple-system,sans-serif}
+main{max-width:500px;margin:auto}
+h1{letter-spacing:-1px}
+.card{background:white;padding:20px;border-radius:20px;margin:16px 0}
+label{display:block;font-size:13px;color:#666;margin:12px 0 6px}
+input{width:100%;padding:13px;border:1px solid #ddd;border-radius:10px;font-size:16px}
+button{padding:14px;border:0;border-radius:12px;background:#111;color:white;font-size:16px;font-weight:bold;width:100%;margin-top:12px}
+.secondary{background:#e9e9eb;color:#111}
+.result{background:#111;color:white;border-radius:16px;padding:18px;margin-top:16px}
+.big{font-size:28px;font-weight:bold;margin:10px 0}
+.bar{height:9px;background:#ddd;border-radius:10px;overflow:hidden;margin:12px 0}
+.fill{height:100%;background:#777}
+.step{color:#999;font-size:12px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<main>
+<h1>GOAL LOCK</h1>
+<p>목표를 정하고, 단계별 저축 플랜을 만들어 봐.</p>
+
+<section class="card">
+<h3>🎯 나의 목표</h3>
+<label>목표 금액 (원)</label>
+<input id="goal" type="number" value="1000000">
+<label>현재 저축액 (원)</label>
+<input id="saved" type="number" value="200000">
+<label>월 소득 (원)</label>
+<input id="income" type="number" value="500000">
+<label>월 소비 (원)</label>
+<input id="expense" type="number" value="300000">
+<label>목표 날짜</label>
+<input id="date" type="date">
+<button onclick="startPlan()">플랜 계산하기</button>
+</section>
+
+<section id="plan" class="card hidden">
+<div id="content"></div>
+<div style="display:flex;gap:8px">
+<button class="secondary" onclick="move(-1)">이전</button>
+<button id="next" onclick="move(1)">다음 단계</button>
+</div>
+</section>
+
+<section class="card">
+<h3>🛒 구매 전 체크</h3>
+<label>구매할 물건</label>
+<input id="item" placeholder="예: 이어폰">
+<label>가격 (원)</label>
+<input id="price" type="number" placeholder="예: 50000">
+<button onclick="checkBuy()">구매 영향 확인</button>
+<div id="buyResult"></div>
+</section>
+</main>
+
+<script>
+let step=0,data={},daily=0;
+const $=id=>document.getElementById(id);
+const money=n=>Math.round(n).toLocaleString('ko-KR')+'원';
+
+let d=new Date();
+d.setDate(d.getDate()+90);
+$('date').value=
+d.getFullYear()+'-'+
+String(d.getMonth()+1).padStart(2,'0')+'-'+
+String(d.getDate()).padStart(2,'0');
+
+function startPlan(){
+let goal=+$('goal').value;
+let saved=+$('saved').value;
+let income=+$('income').value;
+let expense=+$('expense').value;
+let date=$('date').value;
+
+if(goal<=0||!date){
+alert('목표 금액과 날짜를 입력해 줘.');
+return;
+}
+let today=new Date();
+today.setHours(0,0,0,0);
+let target=new Date(date+'T00:00:00');
+let days=Math.ceil((target-today)/86400000);
+if(days<=0){alert('오늘 이후의 날짜를 선택해 줘.');return;}
+
+let remain=Math.max(0,goal-saved);
+daily=remain/days;
+data={goal,saved,income,expense,days,remain,
+monthly:daily*30,free:income-expense,
+progress:Math.min(100,saved/goal*100)};
+step=1;
+$('plan').classList.remove('hidden');
+render();
+$('plan').scrollIntoView({behavior:'smooth'});
+}
+
+function render(){
+let d=data;
+let c=$('content');
+if(step===1){
+c.innerHTML=`<div class="step">STEP 1 / 4</div>
+<h2>목표 확인</h2><div class="result">
+<div>목표 금액</div><div class="big">${money(d.goal)}</div>
+<p>현재 저축: ${money(d.saved)}</p>
+<p>남은 금액: ${money(d.remain)}</p>
+<p>남은 기간: ${d.days}일</p></div>`;
+}else if(step===2){
+c.innerHTML=`<div class="step">STEP 2 / 4</div>
+<h2>필요한 저축액</h2><div class="result">
+<div>하루 저축 목표</div><div class="big">${money(daily)}</div>
+<p>일주일: ${money(daily*7)}</p>
+<p>30일: ${money(d.monthly)}</p></div>`;
+}else if(step===3){
+c.innerHTML=`<div class="step">STEP 3 / 4</div>
+<h2>소득 · 소비 분석</h2><div class="result">
+<p>월 소득: ${money(d.income)}</p>
+<p>월 소비: ${money(d.expense)}</p>
+<p>월 여유금: ${money(d.free)}</p>
+<p>월 필요 저축액: ${money(d.monthly)}</p></div>
+<p>${d.free>=d.monthly?
+'현재 입력값 기준으로 목표 달성이 가능해요.':
+'월 여유금이 부족해요. 소비를 줄이거나 목표 날짜를 조정해 보세요.'}</p>`;
+}else{
+c.innerHTML=`<div class="step">STEP 4 / 4</div>
+<h2>최종 플랜</h2><div class="result">
+<div>현재 진행률</div><div class="big">${d.progress.toFixed(1)}%</div>
+<div class="bar"><div class="fill" style="width:${d.progress}%"></div></div>
+<p>매일 ${money(daily)} 저축하기</p>
+<p>매주 ${money(daily*7)} 저축하기</p>
+<p>매월 ${money(d.monthly)} 저축하기</p></div>`;
+}
+$('next').textContent=step===4?'플랜 다시 계산':'다음 단계';
+}
+function move(n){
+if(!data.goal)return;
+if(step===4&&n===1){startPlan();return;}
+step=Math.max(1,Math.min(4,step+n));
+render();
+}
+function checkBuy(){
+let p=+$('price').value;
+if(p<=0){alert('구매 가격을 입력해 줘.');return;}
+if(!data.goal)startPlan();
+if(!data.goal)return;
+let delay=daily>0?Math.ceil(p/daily):0;
+$('buyResult').innerHTML=`<div class="result">
+<strong>${$('item').value||'이 상품'}</strong><p>${money(p)}</p>
+<p>목표가 약 ${delay}일 늦어질 수 있어요.</p>
+</div>`;
+}
+</script>
+</body>
+</html>
